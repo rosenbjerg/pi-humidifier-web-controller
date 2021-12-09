@@ -1,0 +1,13 @@
+[Unit]
+Description=Humidifier server
+After=multi-user.target
+
+[Service]
+User=pi
+Type=simple
+Restart=always
+WorkingDirectory=/home/pi
+ExecStart=/usr/bin/python3 /home/pi/humidifier.py
+
+[Install]
+WantedBy=multi-user.target
