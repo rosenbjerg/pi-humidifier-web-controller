@@ -89,6 +89,7 @@ def humidification_cycle():
     turn_off_humidifier()
     report_to_homeassistant(humidifier_entity_id, 'Off', humidifier_name, humidifier_icon)
     actively_using = False
+    Thread(target=fan_cycle).start()
 
 
 def fan_cycle():
