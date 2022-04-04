@@ -104,7 +104,7 @@ def fan_cycle():
     
     report_to_homeassistant(fan_entity_id, 'On', fan_name, fan_icon)
     turn_on_fan()
-    usage_ended.wait(roundLengthSec * 2)
+    usage_ended.wait(roundLengthSec * rounds)
 
     print('fan cycle completed')
     turn_off_fan()
