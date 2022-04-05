@@ -109,6 +109,7 @@ def fan_cycle():
     print('fan cycle completed')
     turn_off_fan()
     report_to_homeassistant(fan_entity_id, 'Off', fan_name, fan_icon)
+    actively_using = False
 
 
 def turn_off():
