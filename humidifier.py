@@ -12,7 +12,7 @@ fan_pin = 24
 
 rounds = 4
 roundLengthSec = 7.0
-roundDelaySec = 5.0
+roundDelaySec = 3.0
 
 usage_ended = Event()
 actively_using = False
@@ -39,8 +39,10 @@ def report_to_homeassistant(entity_id, state, name, icon):
 def initialize():
     print('initializing')
     GPIO.setmode(GPIO.BCM)
+
     GPIO.setup(button_pin, GPIO.OUT)
     GPIO.output(button_pin, GPIO.LOW)
+
     GPIO.setup(fan_pin, GPIO.OUT)
     GPIO.output(fan_pin, GPIO.LOW)
 
@@ -49,76 +51,103 @@ def initialize():
 
 
 def turn_on_humidifier():
+    print('turning on humidifier')
     GPIO.output(button_pin, GPIO.HIGH)
-
-def turn_on_fan():
-    GPIO.output(fan_pin, GPIO.HIGH)
+    report_to_homeassistant(humidifier_entity_id, 'On', humidifier_name, humidifier_icon)
 
 def turn_off_humidifier():
+    print('turning off humidifier')
     GPIO.output(button_pin, GPIO.LOW)
+    report_to_homeassistant(humidifier_entity_id, 'Off', humidifier_name, humidifier_icon)
+
+def turn_on_fan():
+    print('turning on fan')
+    GPIO.output(fan_pin, GPIO.HIGH)
+    report_to_homeassistant(fan_entity_id, 'On', fan_name, fan_icon)
 
 def turn_off_fan():
+    print('turning off fan')
     GPIO.output(fan_pin, GPIO.LOW)
+    report_to_homeassistant(fan_entity_id, 'Off', fan_name, fan_icon)
+
+
+def full_cycle():
+    print('starting full cycle')
+    global actively_using
+    if actively_using:
+        return
+    
+    usage_ended.clear()
+    actively_using = True
+
+    turn_on_fan()
+    usage_ended.wait(roundDelaySec)
+
+    for i in range(rounds):
+        if not actively_using:
+            break
+
+        turn_on_humidifier()
+        usage_ended.wait(roundLengthSec)
+
+        turn_off_humidifier()
+        usage_ended.wait(roundDelaySec)
+
+    usage_ended.wait(roundLengthSec)
+    turn_off_fan()
+    actively_using = False
+    print('completed full cycle')
 
 
 def humidification_cycle():
     print('starting humidification cycle')
     global actively_using
     if actively_using:
-        print('humidification cycle is already started')
         return
 
     usage_ended.clear()
     actively_using = True
-    
-    report_to_homeassistant(humidifier_entity_id, 'On', humidifier_name, humidifier_icon)
 
     for i in range(rounds):
         if not actively_using:
             break
 
-        print('turning on humidifier')
         turn_on_humidifier()
         usage_ended.wait(roundLengthSec)
 
-        print('turning off humidifier')
         turn_off_humidifier()
         usage_ended.wait(roundDelaySec)
 
-    print('humidification cycle completed')
     turn_off_humidifier()
-    report_to_homeassistant(humidifier_entity_id, 'Off', humidifier_name, humidifier_icon)
     actively_using = False
-    Thread(target=fan_cycle).start()
+    print('humidification fan cycle')
 
 
 def fan_cycle():
     print('starting fan cycle')
     global actively_using
     if actively_using:
-        print('fan cycle is already started')
         return
     
     usage_ended.clear()
     actively_using = True
     
-    report_to_homeassistant(fan_entity_id, 'On', fan_name, fan_icon)
     turn_on_fan()
     usage_ended.wait(roundLengthSec * rounds)
 
-    print('fan cycle completed')
     turn_off_fan()
-    report_to_homeassistant(fan_entity_id, 'Off', fan_name, fan_icon)
     actively_using = False
+    print('completed fan cycle')
 
 
 def turn_off():
     print('stopping current cycle')
     global actively_using
     actively_using = False
+
     usage_ended.set()
-    report_to_homeassistant(humidifier_entity_id, 'Off', humidifier_name, humidifier_icon)
-    report_to_homeassistant(fan_entity_id, 'Off', fan_name, fan_icon)
+    turn_off_fan()
+    turn_off_humidifier()
 
 
 app = Flask(__name__)
@@ -137,6 +166,11 @@ def fan_on():
 @app.route('/humidifier/on')
 def humidifier_on():
     Thread(target=humidification_cycle).start()
+    return 'On'
+
+@app.route('/full/on')
+def full_cycle_on():
+    Thread(target=full_cycle).start()
     return 'On'
 
 
